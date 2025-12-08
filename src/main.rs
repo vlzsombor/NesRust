@@ -1,4 +1,6 @@
 mod CPU;
+mod AddressingMode;
+mod opcodes;
 
 fn main() {
     println!("hello");
@@ -6,12 +8,16 @@ fn main() {
 
     let mut h11 = Hund{
         name: "vc".to_string(),
-        size: 10
+        size: 10,
+        memory: [10; 0xFFFF]
     };
     let mut hund = Hund::new();
-   testfn(&mut h11);
-    testfn2(&h11)
 
+    for m in h11.memory {
+        println!("{}", m)
+    }
+    testfn(&mut h11);
+    testfn2(&h11)
 }
 
 
@@ -30,7 +36,8 @@ fn testfn(h: &mut Hund) -> &Hund {
 
 struct Hund{
     pub size: u8,
-    pub name: String
+    pub name: String,
+    memory: [u8; 0xFFFF]
 }
 
 
@@ -39,7 +46,8 @@ impl Hund{
     pub fn new() -> Self{
         Hund{
             name: "vc".to_string(),
-            size: 10
+            size: 10,
+            memory: [1; 0xFFFF]
         }
     }
 }
