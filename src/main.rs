@@ -1,53 +1,54 @@
+use std::marker::PhantomData;
+
 mod CPU;
 mod AddressingMode;
 mod opcodes;
 
 fn main() {
-    println!("hello");
-    println!("bello");
+}
 
-    let mut h11 = Hund{
-        name: "vc".to_string(),
-        size: 10,
-        memory: [10; 0xFFFF]
-    };
-    let mut hund = Hund::new();
 
-    for m in h11.memory {
-        println!("{}", m)
+fn testfn(f : &mut impl Flyable){
+    Bird::fly();
+    f.flySelf();
+}
+
+struct Bird{
+    weight: u8,
+    size: u16
+}
+
+struct Plane{
+    weight: u8,
+    plane: u32
+}
+trait Flyable {
+    fn fly() -> u8;
+
+    fn flySelf(&self) -> u8;
+    const DEFAULT: u32 = 0;
+}
+
+
+impl Flyable for Bird {
+    fn fly() -> u8 {
+        println!("im flying lol");
+        3
     }
-    testfn(&mut h11);
-    testfn2(&h11)
+
+    fn flySelf(&self) -> u8 {
+        println!("im flying lol self");
+        3
+    }
 }
+impl Flyable for Plane{
+    fn fly() -> u8 {
+        println!("plane");
+        44
+    }
 
-
-fn testfn2(h: &Hund) {
-
-}
-
-
-fn testfn(h: &mut Hund) -> &Hund {
-    h.size = 33;
-    println!("{}", h.size);
-    println!("{}", h.name);
-    h
-}
-
-
-struct Hund{
-    pub size: u8,
-    pub name: String,
-    memory: [u8; 0xFFFF]
-}
-
-
-impl Hund{
-
-    pub fn new() -> Self{
-        Hund{
-            name: "vc".to_string(),
-            size: 10,
-            memory: [1; 0xFFFF]
-        }
+    fn flySelf(&self) -> u8 {
+        println!("plane self");
+        44
     }
 }
