@@ -123,7 +123,7 @@ impl CPU {
 
             match code{
                 0x00 => return,
-                0xA9 | 0xA5 | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 =>{
+                0xA9 | 0xA5 | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
                     self.lda(&opcode.mode);
                 }
                 0xAA => self.tax(),
@@ -132,6 +132,10 @@ impl CPU {
                     self.sta(&opcode.mode);
 //                    self.program_counter += 1;
                 }
+                /* CLD */ 0xD8 => self.status.remove(CpuFlags::DECIMAL_MODE),
+                /* CLI */ 0x58 => self.status.remove(CpuFlags::INTERRUPT_DISABLE),
+                /* CLV */ 0xB8 => self.status.remove(CpuFlags::OVERFLOW),
+
                 _ => todo!()
             }
 
@@ -280,5 +284,15 @@ mod test {
         cpu.load_and_run(vec![0xa9, 0xff, 0xaa,0xe8, 0xe8, 0x00]);
 
         assert_eq!(cpu.register_x, 1)
+    }
+
+    #[test]
+    fn test_cld()
+    {
+        let mut cpu = CPU::new();
+        cpu.status.set(CpuFlags::INTERRUPT_DISABLE, true);
+        assert!(cpu.status.contains(CpuFlags::INTERRUPT_DISABLE));
+        cpu.load_and_run(vec![0x58, 0x00]);
+        assert!(!cpu.status.contains(CpuFlags::INTERRUPT_DISABLE));
     }
 }
