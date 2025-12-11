@@ -117,10 +117,7 @@ impl CPU {
             let code = self.mem_read(self.program_counter);
             self.program_counter += 1;
             let program_counter_state = self.program_counter;
-
             let opcode = oc.get(&code).expect(&format!("OpCode {:x} is not recognized", code));
-
-
             match code{
                 0x00 => return,
                 0xA9 | 0xA5 | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
@@ -135,7 +132,12 @@ impl CPU {
                 /* CLD */ 0xD8 => self.status.remove(CpuFlags::DECIMAL_MODE),
                 /* CLI */ 0x58 => self.status.remove(CpuFlags::INTERRUPT_DISABLE),
                 /* CLV */ 0xB8 => self.status.remove(CpuFlags::OVERFLOW),
-
+                /* CLC */ 0x18 => self.clear_carry_flag(),
+                /* SEC */ 0x38 => self.set_carry_flag(),
+                /* SEI */ 0x78 => self.status.insert(CpuFlags::INTERRUPT_DISABLE),
+                /* SED */ 0xF8 => self.status.insert(CpuFlags::DECIMAL_MODE),
+                /* PHA */ 0x48 => self.stack_push(self.register_a),
+                /* PLA */ 0x68 => self.pla(),
                 _ => todo!()
             }
 
@@ -145,6 +147,29 @@ impl CPU {
         }
     }
 
+    fn pla(&mut self){
+        let data = self.stack_pop();
+        self.set_register_a(data);
+    }
+
+    fn stack_pop(&mut self) -> u8 {
+        self.stack_pointer = self.stack_pointer.wrapping_add(1);
+        self.mem_read((STACK as u16) + self.stack_pointer as u16)
+    }
+
+    fn stack_push(&mut self, data: u8){
+        self.mem_write((STACK as u16) + self.stack_pointer as u16, data);
+        self.stack_pointer = self.stack_pointer.wrapping_sub(1)
+    }
+
+
+    fn set_carry_flag(&mut self){
+        self.status.insert(CpuFlags::CARRY);
+    }
+
+    fn clear_carry_flag(&mut self){
+        self.status.remove(CpuFlags::CARRY);
+    }
     fn lda(&mut self, mode: &AddressingMode){
         let addr = self.get_operand_address(mode);
         let value = self.mem_read(addr);
@@ -236,6 +261,18 @@ impl CPU {
 #[cfg(test)]
 mod test {
     use super::*;
+
+
+    #[test]
+    fn test_0x48_register_a_push() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xa9, 0x05, 0x48, 0x00]);
+        assert_eq!(cpu.register_a, 5);
+        assert_eq!(cpu.mem_read((STACK as u16) + STACK_RESET as u16), 5);
+        assert!(cpu.status.bits() & 0b0000_0010 == 0);
+        //        assert!(cpu.status.contains(CpuFlags::ZERO));
+        assert_eq!(cpu.status.bits() & 0b1000_0000, 0);
+    }
 
     #[test]
     fn test_0xa9_lda_immediate_load_data() {
