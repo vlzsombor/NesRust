@@ -18,6 +18,7 @@ bitflags! {
     ///  | +--------------- Overflow Flag
     ///  +----------------- Negative Flag
     ///
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub struct CpuFlags: u8 {
         const CARRY             = 0b00000001;
         const ZERO              = 0b00000010;
@@ -40,7 +41,7 @@ pub struct CPU{
 }
 
 const STACK: u16 = 0x0100;
-const STACK_RESET: u8 = 0xfd;
+pub const STACK_RESET: u8 = 0xfd;
 trait Mem {
     fn mem_read(&self, addr: u16) -> u8;
     fn mem_write(&mut self, addr: u16, data: u8);
@@ -118,6 +119,7 @@ impl CPU {
             self.program_counter += 1;
             let program_counter_state = self.program_counter;
             let opcode = oc.get(&code).expect(&format!("OpCode {:x} is not recognized", code));
+
             match code{
                 0x00 => return,
                 0xA9 | 0xA5 | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
@@ -138,6 +140,12 @@ impl CPU {
                 /* SED */ 0xF8 => self.status.insert(CpuFlags::DECIMAL_MODE),
                 /* PHA */ 0x48 => self.stack_push(self.register_a),
                 /* PLA */ 0x68 => self.pla(),
+                /* PHP */ 0x08 => self.php(),
+                /* PLP */ 0x28 => self.plp(),
+                /* ADC */
+                0x69 | 0x65 | 0x75 | 0x6d | 0x7d | 0x79 | 0x61 | 0x71 => {
+                    self.adc(&opcode.mode);
+                },
                 _ => todo!()
             }
 
@@ -147,17 +155,61 @@ impl CPU {
         }
     }
 
+    fn adc(&mut self, mode: &AddressingMode){
+        let addr = self.get_operand_address(mode);
+        let value = self.mem_read(addr);
+        self.add_to_register_ad(value);
+    }
+
+    fn add_to_register_ad(&mut self, data: u8){
+        let sum = self.register_a as u16
+            + data as u16
+            + (if self.status.contains(CpuFlags::CARRY) {
+            1
+        } else {
+            0
+        }) as u16;
+        let carry = sum > 0xff;
+
+        if carry {
+            self.status.insert(CpuFlags::CARRY);
+        } else {
+            self.status.remove(CpuFlags::CARRY);
+        }
+
+        let result = sum as u8;
+
+        if(data ^ result) & (result ^ self.register_a) & 0x80 != 0{
+            self.status.insert(CpuFlags::OVERFLOW);
+        } else {
+            self.status.remove(CpuFlags::OVERFLOW);
+        }
+        self.set_register_a(result);
+    }
+    fn plp(&mut self){
+        let data = self.stack_pop();
+        self.status = CpuFlags::from_bits_truncate(data);
+        self.status.remove(CpuFlags::BREAK);
+        self.status.insert(CpuFlags::BREAK2);
+    }
+    //Todo not sure about the break break2 flags
+    fn php(&mut self){
+        let mut flags = self.status.clone();
+        flags.insert(CpuFlags::BREAK);
+        flags.insert(CpuFlags::BREAK2);
+        self.stack_push(flags.bits())
+    }
     fn pla(&mut self){
         let data = self.stack_pop();
         self.set_register_a(data);
     }
 
-    fn stack_pop(&mut self) -> u8 {
+    pub fn stack_pop(&mut self) -> u8 {
         self.stack_pointer = self.stack_pointer.wrapping_add(1);
         self.mem_read((STACK as u16) + self.stack_pointer as u16)
     }
 
-    fn stack_push(&mut self, data: u8){
+    pub fn stack_push(&mut self, data: u8){
         self.mem_write((STACK as u16) + self.stack_pointer as u16, data);
         self.stack_pointer = self.stack_pointer.wrapping_sub(1)
     }
@@ -264,11 +316,29 @@ mod test {
 
 
     #[test]
+    fn test_0x69_adc() {
+        let mut cpu = CPU::new();
+        cpu.memory[0usize] = 3;;
+        cpu.load_and_run(vec![0x65, 0x00]);
+        assert_eq!(cpu.register_a, 3);
+    }
+    #[test]
     fn test_0x48_register_a_push() {
         let mut cpu = CPU::new();
         cpu.load_and_run(vec![0xa9, 0x05, 0x48, 0x00]);
         assert_eq!(cpu.register_a, 5);
-        assert_eq!(cpu.mem_read((STACK as u16) + STACK_RESET as u16), 5);
+        assert_eq!(cpu.stack_pop(), 5);
+        assert!(cpu.status.bits() & 0b0000_0010 == 0);
+        //        assert!(cpu.status.contains(CpuFlags::ZERO));
+        assert_eq!(cpu.status.bits() & 0b1000_0000, 0);
+    }
+
+    #[test]
+    fn test_0x68_register_a_pop() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xa9, 0x05, 0x48, 0x68, 0x00]);
+        assert_eq!(cpu.register_a, 5);
+        assert_ne!(cpu.stack_pop(), 5);
         assert!(cpu.status.bits() & 0b0000_0010 == 0);
         //        assert!(cpu.status.contains(CpuFlags::ZERO));
         assert_eq!(cpu.status.bits() & 0b1000_0000, 0);
@@ -280,7 +350,6 @@ mod test {
         cpu.load_and_run(vec![0xa9, 0x05, 0x00]);
         assert_eq!(cpu.register_a, 5);
         assert!(cpu.status.bits() & 0b0000_0010 == 0);
-//        assert!(cpu.status.contains(CpuFlags::ZERO));
         assert_eq!(cpu.status.bits() & 0b1000_0000, 0);
     }
 
