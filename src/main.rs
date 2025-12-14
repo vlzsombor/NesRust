@@ -9,16 +9,6 @@ use futures::future::join_all;
 use futures_util::FutureExt;
 use tokio::time::sleep;
 
-async fn example_async() -> String {
-    sleep(Duration::from_secs(11)).await;
-    "Daten geladen".to_string()
-}
-
-async fn example_async2() -> String {
-    sleep(Duration::from_secs(4)).await;
-    "Daten geladen2".to_string()
-}
-
 use tokio;
 macro_rules! either {
     ($test:expr => $true_expr:expr; $false_expr:expr) => {
@@ -32,11 +22,20 @@ macro_rules! either {
 
 #[tokio::main]
 async fn main() {
-    // Variante 3: Vec mit join_all
-    let foo = 1;
-    let bar = 2;
-    either!(foo == bar => println!("it is true"); println!("it is false"));
-    either!(foo != bar => println!("it is true"); println!("it is false"));
+    let mut b = Bird{
+        size: 2,
+        weight: 32
+    };
+
+    test3(&mut b.weight);
+    println!("{}", b.weight)
+}
+fn test3(v: &mut u8) -> u8 {
+    *v = 3;
+    *v
+}
+fn testfn2(mut f :Bird) {
+    testfn(&mut f);
 }
 
 fn testfn(f : &mut impl Flyable){
