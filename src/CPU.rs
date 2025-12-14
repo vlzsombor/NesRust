@@ -146,6 +146,24 @@ impl CPU {
                 0x69 | 0x65 | 0x75 | 0x6d | 0x7d | 0x79 | 0x61 | 0x71 => {
                     self.adc(&opcode.mode);
                 },
+                0xE9 | 0xe5 | 0xf5 | 0xed | 0xfd | 0xf9 | 0xe1 |0xf1 => {
+                    self.sbc(&opcode.mode);
+                }
+                /* AND */
+                0x29 | 0x25 | 0x35 | 0x2d | 0x3d | 0x39 | 0x21 | 0x31 => {
+                    self.and(&opcode.mode)
+                }
+                /* EOR */
+                0x49 | 0x45 | 0x55 | 0x4d | 0x5d | 0x59 | 0x41 | 0x51 => {
+                    self.eor(&opcode.mode)
+                }
+                /* ORA */
+                0x09 | 0x05 | 0x15 | 0x0d | 0x1d | 0x19 | 0x01 | 0x11 => {
+                    //todo is it correct?
+                    self.logic_op(&opcode.mode, |x, y| x | y);
+                }
+                /* LSR */ 0x4a => self.lsr_accumulator(),
+                
                 _ => todo!()
             }
 
@@ -154,14 +172,44 @@ impl CPU {
             }
         }
     }
-
+    fn lsr_accumulator(&mut self){
+        let mut data = self.register_a;
+        if data & 1 == 1{
+            self.set_carry_flag();
+        } else {
+            self.clear_carry_flag();
+        }
+        data = data >> 1;
+        self.set_register_a(data)
+    }
+    fn logic_op(&mut self, mode: &AddressingMode, f: fn(u8, u8) -> u8){
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr);
+        self.set_register_a(f(data, self.register_a));
+    }
+    fn eor(&mut self, mode: &AddressingMode){
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr);
+        self.set_register_a(data ^ self.register_a);
+    }
+    fn and(&mut self, mode: &AddressingMode){
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr);
+        self.set_register_a(data & self.register_a);
+    }
+    fn sbc(&mut self, mode: &AddressingMode){
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr);
+        let value = (data as i8).wrapping_neg().wrapping_sub(1) as u8;
+        self.add_to_register_a(value);
+    }
     fn adc(&mut self, mode: &AddressingMode){
         let addr = self.get_operand_address(mode);
         let value = self.mem_read(addr);
-        self.add_to_register_ad(value);
+        self.add_to_register_a(value);
     }
 
-    fn add_to_register_ad(&mut self, data: u8){
+    fn add_to_register_a(&mut self, data: u8){
         let sum = self.register_a as u16
             + data as u16
             + (if self.status.contains(CpuFlags::CARRY) {
