@@ -9,3 +9,5 @@ bitflags = "2.0"
 tokio = { version = "1.48.0", features = ["time", "rt", "rt-multi-thread", "macros"] }
 futures = "0.3.31"
 futures-util = "0.3.31"
+sdl3 = { version = "0", features = ["bundled"] }
+rand = "=0.7.3"

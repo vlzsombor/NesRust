@@ -1,10 +1,24 @@
 ﻿use std::collections::HashMap;
 use std::ops::AddAssign;
 use bitflags::{bitflags, Flags};
-use crate::AddressingMode::AddressingMode;
+use opcodes::OpCode;
 use crate::opcodes;
 
 
+#[derive(Debug)]
+#[allow(non_camel_case_types)]
+pub enum AddressingMode{
+    Immediate,
+    ZeroPage,
+    ZeroPage_X,
+    ZeroPage_Y,
+    Absolute,
+    Absolute_X,
+    Absolute_Y,
+    Indirect_X,
+    Indirect_Y,
+    NoneAddressing,
+}
 bitflags! {
     /// # Status Register (P) http://wiki.nesdev.com/w/index.php/Status_flags
     ///
@@ -42,7 +56,7 @@ pub struct CPU{
 
 const STACK: u16 = 0x0100;
 pub const STACK_RESET: u8 = 0xfd;
-trait Mem {
+pub trait Mem {
     fn mem_read(&self, addr: u16) -> u8;
     fn mem_write(&mut self, addr: u16, data: u8);
 
@@ -83,11 +97,11 @@ impl CPU {
     }
 
     //Memory
-    fn mem_read(&self, addr: u16) -> u8 {
+    pub fn mem_read(&self, addr: u16) -> u8 {
         self.memory[addr as usize]
     }
 
-    fn mem_write(&mut self, addr: u16, data: u8){
+    pub fn mem_write(&mut self, addr: u16, data: u8){
         self.memory[addr as usize] = data;
     }
 
@@ -114,22 +128,9 @@ impl CPU {
     where
         F: FnMut(&mut CPU),
     {
-        let ref opcodes: HashMap<u8, &'static opcodes::OpCode> = *opcodes::OPCODES_MAP;
-
-        loop {
-            callback(self);
-            //....
-            match code {
-                //...
-            }
-            // ..
-        }
-    }
-
-
-    pub fn run(&mut self){
         let ref oc: HashMap<u8, &'static opcodes::OpCode> = *opcodes::OPCODES_MAP;
         loop{
+            callback(self);
             let code = self.mem_read(self.program_counter);
             self.program_counter += 1;
             let program_counter_state = self.program_counter;
@@ -144,7 +145,7 @@ impl CPU {
                 0xE8 => self.inx(),
                 0x85 | 0x95 | 0x8D | 0x9D | 0x99 | 0x81 | 0x91 => {
                     self.sta(&opcode.mode);
-//                    self.program_counter += 1;
+                    //                    self.program_counter += 1;
                 }
                 /* CLD */ 0xD8 => self.status.remove(CpuFlags::DECIMAL_MODE),
                 /* CLI */ 0x58 => self.status.remove(CpuFlags::INTERRUPT_DISABLE),
@@ -323,6 +324,12 @@ impl CPU {
                 self.program_counter += (opcode.len - 1) as u16;
             }
         }
+    }
+
+
+    pub fn run(&mut self){
+        let ref oc: HashMap<u8, &'static opcodes::OpCode> = *opcodes::OPCODES_MAP;
+        self.run_with_callback(|_| ());
     }
     fn ldy(&mut self, mode: &AddressingMode){
         let addr =self.get_operand_address(mode);
