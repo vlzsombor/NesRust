@@ -2,6 +2,7 @@
 use std::ops::AddAssign;
 use bitflags::{bitflags, Flags};
 use opcodes::OpCode;
+use crate::Bus::Bus;
 use crate::opcodes;
 
 
@@ -51,7 +52,7 @@ pub struct CPU{
     pub register_y: u8,
     pub program_counter: u16,
     pub stack_pointer: u8,
-    memory: [u8; 0xFFFF]
+    pub bus: Bus
 }
 
 const STACK: u16 = 0x0100;
@@ -77,14 +78,22 @@ pub trait Mem {
 }
 impl Mem for CPU {
     fn mem_read(&self, addr: u16) -> u8 {
-        self.memory[addr as usize]
+        self.bus.mem_read(addr)
     }
     fn mem_write(&mut self, addr: u16, data: u8){
-        self.memory[addr as usize] = data;
+        self.bus.mem_write(addr, data)
+    }
+
+    fn mem_read_u16(&self, pos: u16) -> u16 {
+        self.bus.mem_read_u16(pos)
+    }
+
+    fn mem_write_u16(&mut self, pos: u16, data: u16) {
+        self.bus.mem_write_u16(pos, data)
     }
 }
 impl CPU {
-    pub fn new() -> Self {
+    pub fn new(bus: Bus) -> Self {
         CPU {
             register_a: 0,
             status: CpuFlags::from_bits_truncate(0b100100),
@@ -92,17 +101,8 @@ impl CPU {
             program_counter: 0,
             register_x: 0,
             register_y: 0,
-            memory: [0; 0xffff]
+            bus,
         }
-    }
-
-    //Memory
-    pub fn mem_read(&self, addr: u16) -> u8 {
-        self.memory[addr as usize]
-    }
-
-    pub fn mem_write(&mut self, addr: u16, data: u8){
-        self.memory[addr as usize] = data;
     }
 
     pub fn load_and_run(&mut self, program: Vec<u8>){
@@ -121,8 +121,10 @@ impl CPU {
     }
 
     pub fn load(&mut self, program: Vec<u8>){
-        self.memory[0x0600..(0x0600 + program.len())].copy_from_slice(&program[..]);
-        self.mem_write_u16(0xFFFC, 0x0600);
+        for i in 0..(program.len() as u16){
+            self.mem_write(0x0000 + i, program[i as usize]);
+        }
+        self.mem_write_u16(0xfffc, 0x0000);
     }
     pub fn run_with_callback<F>(&mut self, mut callback: F)
     where
