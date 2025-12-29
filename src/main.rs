@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 pub mod cpu;
 pub mod opcodes;
 mod Bus;
-mod Mirroring;
+mod cartridge;
 
 use cpu::Mem;
 use cpu::CPU;
@@ -12,6 +12,7 @@ use sdl3::EventPump;
 use sdl3::keyboard::Keycode;
 use sdl3::pixels::Color;
 use sdl3::pixels::PixelFormatEnum;
+use crate::cartridge::Rom;
 
 #[macro_use]
 extern crate lazy_static;
@@ -73,7 +74,11 @@ fn handle_user_input(cpu: &mut CPU, event_pump: &mut EventPump) {
     }
 }
 
-fn main() {
+
+
+
+fn main()
+{
     // init sdl3
     let sdl_context = sdl3::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
@@ -114,12 +119,12 @@ fn main() {
         0x91, 0x00, 0x60, 0xa6, 0x03, 0xa9, 0x00, 0x81, 0x10, 0xa2, 0x00, 0xa9, 0x01, 0x81, 0x10,
         0x60, 0xa6, 0xff, 0xea, 0xea, 0xca, 0xd0, 0xfb, 0x60,
     ];
-
-
     //load the game
-    let bus = Bus::Bus::new();
+    let bytes: Vec<u8> = std::fs::read("snake.nes").unwrap();
+    let rom = Rom::new(&bytes).unwrap();
+
+    let bus = Bus::Bus::new(rom);
     let mut cpu = CPU::new(bus);
-    cpu.load(game_code);
     cpu.reset();
 
     let mut screen_state = [0 as u8; 32 * 3 * 32];
@@ -141,7 +146,6 @@ fn main() {
 
         std::thread::sleep(std::time::Duration::new(0, 70_000));
     });
-
 }
 
 /*
